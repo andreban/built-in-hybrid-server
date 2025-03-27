@@ -7,10 +7,7 @@ use axum::{
 use serde::Deserialize;
 use tracing::info;
 
-use crate::{
-    AppState,
-    ai::language_model::{Prompt, PromptOptions},
-};
+use crate::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -19,15 +16,13 @@ pub fn routes() -> Router<AppState> {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct LanguageModelPromptRequest {
-    pub input: Vec<Prompt>,
-    pub options: PromptOptions,
-}
+pub struct LanguageModelPromptRequest {}
 
 pub async fn count_tokens(
     State(_app_state): State<AppState>,
     Json(request): Json<LanguageModelPromptRequest>,
 ) -> Result<impl IntoResponse> {
+    info!(request = ?request, "prompt request");
     Ok("Hello")
 }
 
