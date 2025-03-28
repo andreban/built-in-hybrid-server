@@ -1,9 +1,22 @@
 # Built-in AI API Hybrid Server
 
-## Explainers
-- [Prompt API](https://github.com/webmachinelearning/prompt-api)
-- [Writing Assistance APIs](https://github.com/webmachinelearning/writing-assistance-apis)
-- [Translation API](https://github.com/webmachinelearning/translation-api)
+## Prompt API
+ - [Explainer](https://github.com/webmachinelearning/prompt-api) 
 
-
-https://github.com/DefinitelyTyped/DefinitelyTyped/blob/master/types/dom-chromium-ai/index.d.ts#L144
+### Feature support status
+ - createOptions
+    - [x] `systemPrompt`
+    - [x] `initialPrompts`
+    - [x] `temperature`
+    - [x] `topK`
+    - [ ] `expectedInputs`
+ - LanguageModel
+    - [x] `model.prompt()`.
+    - [ ] `model.promptStreaming()`.
+    - [ ] `model.countPromptTokens()`.
+    - [ ] `model.tokensLeft` / `model.tokensSoFar`
+    - [ ] `model.maxTokens`
+    - [x] `model.maxTemperature`
+    - [x] `model.maxTopK`
+    - [x] `model.defaultTemperature`
+    - [x] `model.defaultTopK`
