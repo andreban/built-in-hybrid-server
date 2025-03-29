@@ -12,7 +12,7 @@
     - [ ] `expectedInputs`
  - LanguageModel
     - [x] `model.prompt()`.
-    - [ ] `model.promptStreaming()`.
+    - [x] `model.promptStreaming()`.
     - [ ] `model.countPromptTokens()`.
     - [ ] `model.tokensLeft` / `model.tokensSoFar`
     - [ ] `model.maxTokens`
