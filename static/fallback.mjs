@@ -1,11 +1,11 @@
 export class FallbackLanguageModel extends EventTarget {
-    constructor(createOptions) {
+    constructor(createOptions, capabilities) {
         super();
         this.createOptions = createOptions;
-        this.maxTemperature = 2.0;
-        this.maxTopK = 8;
-        this.defaultTemperature = 1.0;
-        this.defaultTopK = 3;
+        this.maxTemperature = capabilities.maxTemperature;
+        this.maxTopK = capabilities.maxTopK;
+        this.defaultTemperature = capabilities.defaultTemperature;
+        this.defaultTopK = capabilities.defaultTopK;
     }
 
     static async create({ temperature = 1.0, topK = 3, systemPrompt = null, expectedInputs = [], initialPrompts = []} = {}) {
@@ -17,8 +17,12 @@ export class FallbackLanguageModel extends EventTarget {
             initialPrompts,
         };
 
+        const response = await fetch('/language-model/capabilities');
+        const capabilities = await response.json();
+        console.info('capabilities:', capabilities);
+
         normalizePrompts(createOptions.initialPrompts);
-        return new FallbackLanguageModel(createOptions);
+        return new FallbackLanguageModel(createOptions, capabilities);
     }
 
     async prompt(input) {

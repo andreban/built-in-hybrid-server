@@ -6,10 +6,11 @@ use axum::{
     extract::State,
     http::header,
     response::{AppendHeaders, IntoResponse, Result},
-    routing::post,
+    routing::{get, post},
 };
 use gemini_rs::prelude::{Content, GenerateContentRequest, GenerationConfig, Role};
 use serde::Deserialize;
+use serde_json::json;
 use tokio::sync::mpsc::{self, Sender};
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::info;
@@ -28,6 +29,7 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/prompt", post(prompt))
         .route("/prompt-streaming", post(prompt_streaming))
+        .route("/capabilities", get(capabilities))
 }
 
 #[derive(Debug, Deserialize)]
@@ -159,4 +161,16 @@ pub async fn stream_response(
             break;
         }
     }
+}
+
+
+async fn capabilities() -> impl IntoResponse {
+    Json(json!({
+        "maxTemperature": 2.0,
+        "maxTopK":  40,
+        "defaultTemperature": 1.0,
+        "defaultTopK": 3,
+        "defaultTopP": 0.95,
+        "maxTokens": 1_048_576,
+    }))
 }
