@@ -65,7 +65,7 @@ export class FallbackLanguageModel extends EventTarget {
 }
 
 function normalizeInputs(input) {
-    let inputs = [];
+    const inputs = [];
     if (typeof input === 'string') {
         inputs.push({role: 'user', type: 'text', content: input});
     } else if (input instanceof Array) {
