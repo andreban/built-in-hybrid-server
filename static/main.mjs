@@ -6,6 +6,7 @@ const temperatureInput = document.getElementById('temperature');
 const temperatureValueSpan = document.getElementById('temperature-value');
 const topKInput = document.getElementById('top-k');
 const topKValueSpan = document.getElementById('top-k-value');
+const streamResponseCheckbox = document.getElementById('stream-response'); // Added
 const systemPromptWrapper = document.getElementById('system-prompt-wrapper'); // Added
 const systemPromptToggle = document.getElementById('system-prompt-toggle');
 const systemPromptInput = document.getElementById('system-prompt');
@@ -28,13 +29,13 @@ let conversationHistory = []; // Array to store { role: 'user'/'assistant', cont
 // Function to create the language model instance
 async function createModel(createOptions, forceFallback) {
     let apiType = 'Fallback'; // Default to fallback
-    if (!forceFallback && "ai" in self && "languageModel" in self.ai) {
+    if (!forceFallback && "LanguageModel" in self) {
         try {
-            const availability = await self.ai.languageModel.availability();
+            const availability = await self.LanguageModel.availability();
             console.info('Prompt API capabilities:', availability);
             if (availability === 'available') {
                 console.info('Attempting to use the Built-in Prompt API');
-                const model = await self.ai.languageModel.create(createOptions);
+                const model = await self.LanguageModel.create(createOptions);
                 apiType = 'Built-in';
                 console.info('Using the Built-in Prompt API');
                 return { model, apiType };
@@ -53,8 +54,11 @@ async function createModel(createOptions, forceFallback) {
 // Function to render conversation history
 function renderHistory() {
     historyContainer.innerHTML = ''; // Clear previous history
-    conversationHistory.forEach(entry => {
+    historyContainer.innerHTML = ''; // Clear previous history
+    conversationHistory.forEach((entry, index) => { // Added index
         const div = document.createElement('div');
+        // Add an ID to easily find the last assistant message div for streaming
+        div.id = `history-entry-${index}`;
         div.innerHTML = `<strong>${entry.role}:</strong> ${entry.content}`;
         historyContainer.appendChild(div);
     });
@@ -140,6 +144,7 @@ clearHistoryButton.addEventListener('click', () => {
 resetSettingsButton.addEventListener('click', () => {
     // Reset UI elements to defaults
     forceFallbackCheckbox.checked = false;
+    streamResponseCheckbox.checked = false; // Added
     temperatureInput.value = 1.0; // Default from fallback.mjs (adjust if different)
     temperatureValueSpan.textContent = temperatureInput.value;
     topKInput.value = 3; // Default from fallback.mjs
@@ -163,11 +168,12 @@ sendButton.addEventListener('click', async () => {
 
     // Disable button and show loading state
     sendButton.disabled = true;
-    historyContainer.lastChild?.scrollIntoView(); // Scroll to the user prompt added
+    userPromptInput.disabled = true; // Disable input while processing
     apiUsedDiv.textContent = 'Working...';
 
     // Get config
     const forceFallback = forceFallbackCheckbox.checked;
+    const streamResponse = streamResponseCheckbox.checked; // Added
     const temperature = parseFloat(temperatureInput.value);
     const topK = parseInt(topKInput.value, 10);
     const systemPrompt = systemPromptInput.value.trim();
@@ -186,32 +192,64 @@ sendButton.addEventListener('click', async () => {
     // Add current user prompt to history (before sending)
     conversationHistory.push({ role: 'user', content: userPrompt });
     renderHistory(); // Show user prompt immediately
+    historyContainer.lastChild?.scrollIntoView({ behavior: 'smooth' }); // Scroll to user prompt
+
+    // Clear the user prompt input *after* adding to history
+    userPromptInput.value = '';
 
     try {
         // Create model (decides built-in vs fallback)
         const { model, apiType } = await createModel(createOptions, forceFallback);
-        apiUsedDiv.textContent = apiType;
+        apiUsedDiv.textContent = `${apiType}${streamResponse ? ' (Streaming)' : ''}`; // Indicate streaming
 
         console.info('Conversation history:', conversationHistory);
-        // Pass the entire conversation history to the prompt method.
-        const result = await model.prompt(conversationHistory); // Using non-streaming prompt
 
-        // Add assistant response to history
-        conversationHistory.push({ role: 'assistant', content: result });
-        renderHistory(); // Update history display with assistant response
+        if (streamResponse) {
+            // --- Streaming Logic ---
+            const stream = await model.promptStreaming(conversationHistory);
+            const reader = stream.getReader();
 
-        // Clear the user prompt input for the next turn
-        userPromptInput.value = '';
+            // Add placeholder for assistant response
+            const assistantEntryIndex = conversationHistory.length;
+            conversationHistory.push({ role: 'assistant', content: '' });
+            renderHistory(); // Render placeholder
+            const assistantDiv = document.getElementById(`history-entry-${assistantEntryIndex}`);
+            const assistantContentSpan = assistantDiv.appendChild(document.createElement('span')); // Append content here
+
+            // Read from stream
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                conversationHistory[assistantEntryIndex].content += value; // Update history array
+                assistantContentSpan.textContent += value; // Update UI directly
+                historyContainer.scrollTop = historyContainer.scrollHeight; // Keep scrolled down
+            }
+            // Ensure final render reflects complete streamed content if needed (though direct update is usually sufficient)
+            // renderHistory();
+
+        } else {
+            // --- Non-Streaming Logic (Existing) ---
+            const result = await model.prompt(conversationHistory);
+            conversationHistory.push({ role: 'assistant', content: result });
+            renderHistory(); // Update history display with assistant response
+        }
 
     } catch (error) {
         console.error('Error during prompt generation:', error);
-        // Display error in history instead
+        // Display error in history
         conversationHistory.push({ role: 'assistant', content: `Error: ${error.message}` });
+        // Ensure placeholder exists if error happens mid-stream
+        if (conversationHistory[conversationHistory.length - 1]?.role !== 'assistant') {
+             conversationHistory.push({ role: 'assistant', content: '' });
+        }
+        conversationHistory[conversationHistory.length - 1].content += `\n\n--- Error: ${error.message} ---`;
         renderHistory();
         apiUsedDiv.textContent = 'Error';
     } finally {
-        // Re-enable button
+        // Re-enable UI
         sendButton.disabled = false;
+        userPromptInput.disabled = false;
+        historyContainer.scrollTop = historyContainer.scrollHeight; // Scroll to bottom after completion/error
     }
 });
 

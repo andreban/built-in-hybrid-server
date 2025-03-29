@@ -152,16 +152,11 @@ pub async fn stream_response(
         };
 
         if let Some(text) = candidate.get_text() {
-            let _ = tx
-                .send(Ok(format!("event: chunk\ndata: {}\n\n", text)))
-                .await;
+            let _ = tx.send(Ok(text)).await;
         }
 
         if candidate.finish_reason.is_some() {
             break;
         }
     }
-    let _ = tx
-        .send(Ok("event: status\ndata: done\n\n".to_string()))
-        .await;
 }
