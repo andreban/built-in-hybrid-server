@@ -111,7 +111,7 @@ impl AILanguageModelCreateOptions {
             ));
         };
 
-        return Ok(Some(content.clone()));
+        Ok(Some(content.clone()))
     }
 }
 

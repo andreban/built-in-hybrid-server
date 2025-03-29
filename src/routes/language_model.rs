@@ -1,13 +1,17 @@
-use std::vec;
+use std::{convert::Infallible, vec};
 
 use axum::{
     Json, Router,
+    body::Body,
     extract::State,
-    response::{IntoResponse, Result},
+    http::header,
+    response::{AppendHeaders, IntoResponse, Result},
     routing::post,
 };
 use gemini_rs::prelude::{Content, GenerateContentRequest, GenerationConfig, Role};
 use serde::Deserialize;
+use tokio::sync::mpsc::{self, Sender};
+use tokio_stream::wrappers::ReceiverStream;
 use tracing::info;
 
 use crate::{
@@ -21,7 +25,9 @@ use crate::{
 static GEMINI_MODEL: &str = "gemini-2.0-flash-lite-001";
 
 pub fn routes() -> Router<AppState> {
-    Router::new().route("/prompt", post(prompt))
+    Router::new()
+        .route("/prompt", post(prompt))
+        .route("/prompt-streaming", post(prompt_streaming))
 }
 
 #[derive(Debug, Deserialize)]
@@ -83,6 +89,7 @@ impl TryInto<GenerateContentRequest> for LanguageModelPromptRequest {
     }
 }
 
+#[axum::debug_handler]
 pub async fn prompt(
     State(app_state): State<AppState>,
     Json(request): Json<LanguageModelPromptRequest>,
@@ -106,4 +113,55 @@ pub async fn prompt(
     info!(text);
 
     Ok(text)
+}
+
+#[axum::debug_handler]
+pub async fn prompt_streaming(
+    State(app_state): State<AppState>,
+    Json(request): Json<LanguageModelPromptRequest>,
+) -> impl IntoResponse {
+    info!(request = ?request, "prompt streaming request");
+
+    let (tx, rx) = mpsc::channel::<Result<String, Infallible>>(2);
+    tokio::spawn(stream_response(tx, app_state, request));
+    let body = Body::from_stream(ReceiverStream::new(rx));
+
+    let headers = AppendHeaders([
+        (header::CONTENT_TYPE, "text/event-stream"),
+        (header::CACHE_CONTROL, "no-cache"),
+        (header::CONNECTION, "keep-alive"),
+    ]);
+
+    (headers, body)
+}
+
+pub async fn stream_response(
+    tx: Sender<Result<String, Infallible>>,
+    app_state: AppState,
+    request: LanguageModelPromptRequest,
+) {
+    let gemini_request: GenerateContentRequest = request.try_into().unwrap();
+    let gemini_response = app_state
+        .gemini_client
+        .stream_generate_content(&gemini_request, GEMINI_MODEL)
+        .await;
+
+    while let Some(Ok(mut response)) = gemini_response.pop().await {
+        let Some(candidate) = response.candidates.pop() else {
+            break;
+        };
+
+        if let Some(text) = candidate.get_text() {
+            let _ = tx
+                .send(Ok(format!("event: chunk\ndata: {}\n\n", text)))
+                .await;
+        }
+
+        if candidate.finish_reason.is_some() {
+            break;
+        }
+    }
+    let _ = tx
+        .send(Ok("event: status\ndata: done\n\n".to_string()))
+        .await;
 }
