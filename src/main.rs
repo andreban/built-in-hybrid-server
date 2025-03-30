@@ -6,7 +6,7 @@ use std::{env, error::Error, sync::Arc};
 use axum::Router;
 use gcp_auth::TokenProvider;
 use gemini_rs::prelude::GeminiClient;
-use tower_http::services::ServeDir;
+use tower_http::{compression::CompressionLayer, services::ServeDir};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -35,10 +35,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let app_state = AppState { gemini_client };
 
+    // Sets up a compression layer that supports brotli, deflate, gzip, and zstd.
+    let compression_layer = CompressionLayer::new()
+        .br(true)
+        .deflate(true)
+        .gzip(true)
+        .zstd(true);
+
     // Create Router.
     let app = Router::new()
         .fallback_service(ServeDir::new("static"))
         .merge(routes::routes())
+        .layer(compression_layer)
         .with_state(app_state);
 
     let listener = tokio::net::TcpListener::bind(bind_address).await?;
