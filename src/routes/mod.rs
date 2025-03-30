@@ -1,3 +1,5 @@
+mod error;
+
 mod language_model;
 
 use axum::Router;

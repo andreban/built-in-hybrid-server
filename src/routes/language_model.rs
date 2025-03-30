@@ -13,7 +13,7 @@ use serde::Deserialize;
 use serde_json::json;
 use tokio::sync::mpsc::{self, Sender};
 use tokio_stream::wrappers::ReceiverStream;
-use tracing::info;
+use tracing::{error, info, warn};
 
 use crate::{
     AppState,
@@ -22,6 +22,8 @@ use crate::{
         AILanguageModelPromptRole,
     },
 };
+
+use super::error::ApplicationError;
 
 static GEMINI_MODEL: &str = "gemini-2.0-flash-lite-001";
 
@@ -95,24 +97,21 @@ impl TryInto<GenerateContentRequest> for LanguageModelPromptRequest {
 pub async fn prompt(
     State(app_state): State<AppState>,
     Json(request): Json<LanguageModelPromptRequest>,
-) -> Result<impl IntoResponse> {
+) -> Result<impl IntoResponse, ApplicationError> {
     info!(request = ?request, "prompt request");
 
     let gemini_request: GenerateContentRequest = request.try_into().unwrap();
-    let mut gemini_response = app_state
+    let gemini_response = app_state
         .gemini_client
         .generate_content(&gemini_request, GEMINI_MODEL)
-        .await
-        .unwrap();
-    info!(response = ?gemini_response, "gemini response");
+        .await?;
 
     let text = gemini_response
         .candidates
-        .pop()
-        .unwrap()
+        .first()
+        .ok_or(gemini_rs::error::Error::NoCandidatesError)?
         .get_text()
         .unwrap_or_default();
-    info!(text);
 
     Ok(text)
 }
@@ -148,8 +147,17 @@ pub async fn stream_response(
         .stream_generate_content(&gemini_request, GEMINI_MODEL)
         .await;
 
-    while let Some(Ok(mut response)) = gemini_response.pop().await {
-        let Some(candidate) = response.candidates.pop() else {
+    while let Some(response) = gemini_response.pop().await {
+        let response = match response {
+            Ok(response) => response,
+            Err(e) => {
+                error!("Gemini streaming response error: {}", e);
+                break;
+            }
+        };
+
+        let Some(candidate) = response.candidates.first() else {
+            warn!("No candidates returned for the prompt");
             break;
         };
 
@@ -162,7 +170,6 @@ pub async fn stream_response(
         }
     }
 }
-
 
 async fn capabilities() -> impl IntoResponse {
     Json(json!({
