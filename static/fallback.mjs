@@ -8,18 +8,25 @@ export class FallbackLanguageModel extends EventTarget {
         this.defaultTopK = capabilities.defaultTopK;
     }
 
-    static async create({ temperature = 1.0, topK = 3, systemPrompt = null, expectedInputs = [], initialPrompts = []} = {}) {
-        const createOptions = {
-            temperature,
-            topK,
-            systemPrompt,
-            expectedInputs,
-            initialPrompts,
-        };
-
+    static async create(options) {
         const response = await fetch('/language-model/capabilities');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${result.status} / ${result.statusText}`);
+        }
+        if (!response.body) {
+            throw new Error('Response body is null');
+        }        
+        
         const capabilities = await response.json();
         console.info('capabilities:', capabilities);
+        
+        const createOptions = {
+            temperature: options.temperature || capabilities.defaultTemperature,
+            topK: options.topK || capabilities.defaultTopK,
+            systemPrompt: options.systemPrompt || null,
+            expectedInputs: options.expectedInputs || [],
+            initialPrompts: options.initialPrompts || [],
+        };
 
         normalizePrompts(createOptions.initialPrompts);
         return new FallbackLanguageModel(createOptions, capabilities);
@@ -37,6 +44,14 @@ export class FallbackLanguageModel extends EventTarget {
                 inputs: inputs,
             })
         });
+
+        if (!result.ok) {
+            throw new Error(`HTTP error! status: ${result.status} / ${result.statusText}`);
+        }
+        if (!result.body) {
+            throw new Error('Response body is null');
+        }       
+        
         return result.text();
     }
 
