@@ -77,6 +77,29 @@ export class FallbackLanguageModel extends EventTarget {
 
         return result.body.pipeThrough(new TextDecoderStream())
     }
+
+    async countTokens(input) { // Changed parameter name from 'inputs' to 'input'
+        const normalizedInputs = normalizeInputs(input); // Use a different variable name
+        const result = await fetch('/language-model/count-tokens', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                createOptions: this.createOptions,
+                inputs: normalizedInputs, // Use the normalized inputs
+            })
+        });
+
+        if (!result.ok) {
+            throw new Error(`HTTP error! status: ${result.status}`);
+        }
+        if (!result.body) {
+            throw new Error('Response body is null');
+        }
+
+        return Number.parseInt(await result.text()); // Return the parsed number
+    }
 }
 
 function normalizeInputs(input) {

@@ -32,6 +32,7 @@ pub fn routes() -> Router<AppState> {
         .route("/prompt", post(prompt))
         .route("/prompt-streaming", post(prompt_streaming))
         .route("/capabilities", get(capabilities))
+        .route("/count-tokens", post(count_tokens))
 }
 
 #[derive(Debug, Deserialize)]
@@ -39,6 +40,16 @@ pub fn routes() -> Router<AppState> {
 pub struct LanguageModelPromptRequest {
     pub create_options: AILanguageModelCreateOptions,
     pub inputs: Vec<AILanguageModelPrompt>,
+}
+
+impl LanguageModelPromptRequest {
+    // Concatenate the initial prompts with the request prompts.
+    pub fn all_inputs(&self) -> impl Iterator<Item = &AILanguageModelPrompt> {
+        self.create_options
+            .initial_prompts
+            .iter()
+            .chain(self.inputs.iter())
+    }
 }
 
 impl TryInto<GenerateContentRequest> for LanguageModelPromptRequest {
@@ -62,14 +73,7 @@ impl TryInto<GenerateContentRequest> for LanguageModelPromptRequest {
         // Set the User / Assistant Prompts.
         let mut contents: Vec<Content> = vec![];
 
-        // Concatenate the initial prompts with the request prompts.
-        let all_inputs = self
-            .create_options
-            .initial_prompts
-            .iter()
-            .chain(self.inputs.iter());
-
-        for input in all_inputs {
+        for input in self.all_inputs() {
             match input {
                 AILanguageModelPrompt::Text { role, content } => {
                     let role = match role {
@@ -171,6 +175,7 @@ pub async fn stream_response(
     }
 }
 
+#[axum::debug_handler]
 async fn capabilities() -> impl IntoResponse {
     Json(json!({
         "maxTemperature": 2.0,
@@ -180,4 +185,52 @@ async fn capabilities() -> impl IntoResponse {
         "defaultTopP": 0.95,
         "maxTokens": 1_048_576,
     }))
+}
+
+async fn count_tokens(
+    Json(request): Json<LanguageModelPromptRequest>,
+) -> Result<impl IntoResponse, ApplicationError> {
+    info!(request = ?request, "count tokens request");
+
+    let prompt = build_gemma_prompt(&request)?;
+    let total_tokens = crate::ai::tokenizer::count_tokens(&prompt)
+        .map_err(|e| ApplicationError::TokenizerError(e))?;
+
+    Ok(total_tokens.to_string())
+}
+
+// See https://ai.google.dev/gemma/docs/core/prompt-structure
+pub fn build_gemma_prompt(
+    request: &LanguageModelPromptRequest,
+) -> Result<String, ApplicationError> {
+    static START_OF_TURN: &str = "<start_of_turn>";
+    static END_OF_TURN: &str = "<end_of_turn>";
+    static MODEL: &str = "model";
+    static USER: &str = "user";
+
+    let mut prompt = String::new();
+    let mut system_prompt = request.create_options.system_prompt_text()?;
+
+    for input in request.all_inputs() {
+        let (user_or_model, content) = match input {
+            AILanguageModelPrompt::Text { role, content } => match role {
+                AILanguageModelPromptRole::User => (USER, content),
+                AILanguageModelPromptRole::Assistant => (MODEL, content),
+                _ => continue,
+            },
+            _ => continue,
+        };
+        prompt.push_str(START_OF_TURN);
+        prompt.push_str(user_or_model);
+        prompt.push_str("\n");
+        if let Some(system) = system_prompt.take() {
+            prompt.push_str(&system);
+            prompt.push_str("\n\n");
+            system_prompt = None;
+        }
+        prompt.push_str(content);
+        prompt.push_str(END_OF_TURN);
+        prompt.push_str("\n");
+    }
+    Ok(prompt)
 }
