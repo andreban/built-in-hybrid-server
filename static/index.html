@@ -4,169 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hybrid AI Tester</title>
+    <link rel="stylesheet" href="style.css">
     <script type="module" src="main.mjs"></script>
-    <style>
-        body {
-            font-family: sans-serif;
-            display: flex;
-            gap: 20px;
-            padding: 20px;
-            max-width: 1200px;
-            margin: auto;
-            height: calc(100vh - 40px); /* Full viewport height minus padding */
-        }
-        #config, #chat-area {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            padding: 15px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            height: 100%; /* Fill vertical space */
-            box-sizing: border-box;
-        }
-        #config { flex-basis: 350px; flex-shrink: 0; overflow-y: auto; }
-        #chat-area { flex-grow: 1; } /* Takes remaining space */
-
-        h1, h2, h3 { margin-top: 0; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; }
-        textarea, input[type="number"], input[type="range"], select {
-            width: 100%;
-            padding: 8px;
-            box-sizing: border-box;
-            margin-bottom: 10px;
-            border: 1px solid #ccc;
-            border-radius: 3px;
-        }
-        textarea { min-height: 80px; resize: vertical; }
-        button {
-            padding: 10px 15px;
-            cursor: pointer;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            align-self: flex-start;
-        }
-        button:hover { background-color: #0056b3; }
-        button.remove-btn {
-            background-color: #dc3545;
-            padding: 3px 8px;
-            font-size: 0.8em;
-            margin-left: 10px;
-        }
-        button.remove-btn:hover { background-color: #c82333; }
-
-        .param-group { display: flex; align-items: center; gap: 10px; }
-        .param-group label { margin-bottom: 0; flex-basis: 100px; }
-        .param-group input[type="range"] { flex-grow: 1; margin-bottom: 0; }
-        .param-group span { min-width: 30px; text-align: right; }
-
-        .initial-prompt-entry {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            padding: 10px;
-            border: 1px dashed #eee;
-            margin-bottom: 5px;
-            border-radius: 3px;
-        }
-        .initial-prompt-entry select { width: auto; flex-basis: 100px; margin-bottom: 0; }
-        .initial-prompt-entry textarea { flex-grow: 1; margin-bottom: 0; min-height: 40px; }
-
-        #history-container {
-            background-color: #f9f9f9;
-            border: 1px solid #eee;
-            padding: 10px;
-            flex-grow: 1; /* Takes most vertical space */
-            overflow-y: auto; /* Scroll for long history */
-            min-height: 200px; /* Ensure minimum height */
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }
-        #history-container div {
-            border-bottom: 1px dotted #ccc;
-            padding: 5px 0;
-        }
-        #history-container div:last-child { border-bottom: none; }
-        #history-container strong { text-transform: capitalize; }
-        #api-used { font-weight: bold; padding: 5px; background-color: #e0e0e0; border-radius: 3px; text-align: center; margin-bottom: 10px; }
-
-        /* Collapsible Styles (Shared) */
-        #system-prompt-wrapper {
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
-            margin-bottom: 10px;
-        }
-        #system-prompt-toggle {
-            cursor: pointer;
-            user-select: none;
-            font-weight: bold;
-            display: block;
-            margin-bottom: 5px;
-        }
-        #system-prompt-toggle::before {
-            content: '▶ '; /* Collapsed indicator */
-            display: inline-block;
-            margin-right: 5px;
-            transition: transform 0.2s ease-in-out;
-        }
-        #system-prompt-wrapper.visible #system-prompt-toggle::before {
-            transform: rotate(90deg); /* Expanded indicator */
-        }
-        #system-prompt-content {
-             display: none; /* Hide content by default */
-        }
-        #system-prompt-wrapper.visible #system-prompt-content {
-            display: block; /* Show content when visible */
-        }
-        #initial-prompts-wrapper {
-             border-bottom: 1px solid #eee;
-             padding-bottom: 10px;
-             margin-bottom: 10px;
-        }
-        #initial-prompts-toggle {
-            cursor: pointer;
-            user-select: none;
-            font-weight: bold; /* Keep h3 bold */
-            margin-bottom: 5px; /* Add some space */
-        }
-        #initial-prompts-toggle::before {
-            content: '▶ '; /* Collapsed indicator */
-            display: inline-block;
-            margin-right: 5px;
-            transition: transform 0.2s ease-in-out;
-        }
-        #initial-prompts-wrapper.visible #initial-prompts-toggle::before {
-            transform: rotate(90deg); /* Expanded indicator */
-        }
-        #initial-prompts-content {
-             display: none; /* Hide content by default */
-        }
-        #initial-prompts-wrapper.visible #initial-prompts-content {
-            display: block; /* Show content when visible */
-        }
-        /* End Collapsible Styles */
-
-        #input-area { display: flex; gap: 10px; align-items: flex-end; }
-        #input-area textarea { flex-grow: 1; margin-bottom: 0; min-height: 40px; max-height: 150px; }
-        #input-area button { margin-bottom: 0; }
-        button.secondary-btn {
-            background-color: #6c757d; /* Gray */
-        }
-        button.secondary-btn:hover {
-            background-color: #5a6268;
-        }
-        #config button#reset-settings-button { /* Specific style for reset button */
-             margin-top: 15px; /* Add space above reset button */
-             align-self: stretch; /* Make it full width */
-             background-color: #ffc107; /* Warning yellow */
-             color: #212529;
-        }
-        #config button#reset-settings-button:hover {
-             background-color: #e0a800;
-        }
-    </style>
 </head>
 <body>
     <div id="config">
@@ -219,19 +58,15 @@
         <div id="initial-prompts-wrapper">
              <label id="initial-prompts-toggle">Initial Prompts</label>
              <div id="initial-prompts-content">
-                 <div id="initial-prompts-list">
-                     <!-- Initial prompt entries will be added here -->
-                 </div>
+                 <div id="initial-prompts-list"></div>
                  <button id="add-initial-prompt">Add Initial Prompt</button>
              </div>
         </div>
-        <div id="history-container">
-            <!-- History will be displayed here -->
-        </div>
+        <div id="history-container"></div>
         <div id="input-area">
             <textarea id="user-prompt" placeholder="Enter your prompt..." required rows="1"></textarea>
             <button id="send-prompt">Send</button>
-            <button id="clear-history-button" class="secondary-btn" title="Clear Chat History">Clear</button> <!-- Added Clear Button -->
+            <button id="clear-history-button" class="secondary-btn" title="Clear Chat History">Clear</button>
         </div>
     </div>
 
