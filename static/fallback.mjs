@@ -122,3 +122,26 @@ function normalizePrompts(prompts) {
         prompt.type = prompt.type || 'text';
     })    
 }
+
+// Function to create the language model instance
+export async function createModel(createOptions = {}, forceFallback = false) {
+    if (!forceFallback && "LanguageModel" in self) {
+        try {
+            const availability = await self.LanguageModel.availability();
+            console.info('Built-in Prompt API availability:', availability);
+            if (availability === 'available') {
+                console.info('Attempting to use the Built-in Prompt API');
+                const model = await self.LanguageModel.create(createOptions);
+                console.info('Using the Built-in Prompt API');
+                return model;
+            } else {
+                 console.warn('Built-in Prompt API not readily available:', availability);
+            }
+        } catch (error) {
+            console.error('Error checking or creating Built-in model:', error);
+        }
+    }
+    console.info('Using the Fallback Prompt API');
+    const model = await FallbackLanguageModel.create(createOptions);
+    return model;
+}

@@ -1,4 +1,4 @@
-import { FallbackLanguageModel } from './fallback.mjs';
+import { createModel, FallbackLanguageModel } from './fallback.mjs';
 
 // --- DOM Elements ---
 const forceFallbackCheckbox = document.getElementById('force-fallback');
@@ -22,33 +22,13 @@ const apiUsedDiv = document.getElementById('api-used');
 const historyContainer = document.getElementById('history-container');
 
 // --- State ---
-let conversationHistory = []; // Array to store { role: 'user'/'assistant', content: '...' }
+let conversationHistory = [];
 
-// --- Helper Functions ---
-
-// Function to create the language model instance
-async function createModel(createOptions, forceFallback) {
-    let apiType = 'Fallback'; // Default to fallback
-    if (!forceFallback && "LanguageModel" in self) {
-        try {
-            const availability = await self.LanguageModel.availability();
-            console.info('Prompt API capabilities:', availability);
-            if (availability === 'available') {
-                console.info('Attempting to use the Built-in Prompt API');
-                const model = await self.LanguageModel.create(createOptions);
-                apiType = 'Built-in';
-                console.info('Using the Built-in Prompt API');
-                return { model, apiType };
-            } else {
-                 console.warn('Built-in Prompt API not readily available:', availability);
-            }
-        } catch (error) {
-            console.error('Error checking or creating Built-in model:', error);
-        }
+function apiType(model) {
+    if (model instanceof FallbackLanguageModel) {
+        return 'Fallback';
     }
-    console.info('Using the Fallback Prompt API');
-    const model = await FallbackLanguageModel.create(createOptions);
-    return { model, apiType };
+    return 'Built-in';
 }
 
 // Function to render conversation history
@@ -157,7 +137,6 @@ resetSettingsButton.addEventListener('click', () => {
     initialPromptsWrapper.classList.remove('visible');
 });
 
-
 // Handle main prompt submission
 sendButton.addEventListener('click', async () => {
     const userPrompt = userPromptInput.value.trim();
@@ -169,7 +148,6 @@ sendButton.addEventListener('click', async () => {
     // Disable button and show loading state
     sendButton.disabled = true;
     userPromptInput.disabled = true; // Disable input while processing
-    apiUsedDiv.textContent = 'Working...';
 
     // Get config
     const forceFallback = forceFallbackCheckbox.checked;
@@ -199,8 +177,8 @@ sendButton.addEventListener('click', async () => {
 
     try {
         // Create model (decides built-in vs fallback)
-        const { model, apiType } = await createModel(createOptions, forceFallback);
-        apiUsedDiv.textContent = `${apiType}${streamResponse ? ' (Streaming)' : ''}`; // Indicate streaming
+        const model = await createModel(createOptions, forceFallback);
+        apiUsedDiv.textContent = apiType(model); // Indicate streaming
 
         console.info('Conversation history:', conversationHistory);
 
@@ -244,7 +222,6 @@ sendButton.addEventListener('click', async () => {
         }
         conversationHistory[conversationHistory.length - 1].content += `\n\n--- Error: ${error.message} ---`;
         renderHistory();
-        apiUsedDiv.textContent = 'Error';
     } finally {
         // Re-enable UI
         sendButton.disabled = false;
@@ -252,6 +229,9 @@ sendButton.addEventListener('click', async () => {
         historyContainer.scrollTop = historyContainer.scrollHeight; // Scroll to bottom after completion/error
     }
 });
+
+let model = await createModel();
+apiUsedDiv.textContent = apiType(model);
 
 temperatureValueSpan.textContent = temperatureInput.value;
 topKValueSpan.textContent = topKInput.value;
