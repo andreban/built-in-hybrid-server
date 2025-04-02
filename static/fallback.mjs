@@ -9,7 +9,7 @@ export class FallbackLanguageModel extends EventTarget {
     }
 
     static async create(options) {
-        const response = await fetch('/language-model/capabilities');
+        const response = await fetch('/language-model/capabilities', { method: 'POST' });
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${result.status} / ${result.statusText}`);
         }
