@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
 
 #[derive(Debug)]
 pub enum AILanguageModelError {
@@ -28,6 +29,7 @@ pub enum AILanguageModelPromptRole {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde_as]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum AILanguageModelPrompt {
     Text {
@@ -36,10 +38,12 @@ pub enum AILanguageModelPrompt {
     },
     Image {
         role: AILanguageModelPromptRole,
+        #[serde_as(as = "Base64")]
         content: Vec<u8>,
     },
     Audio {
         role: AILanguageModelPromptRole,
+        #[serde_as(as = "Base64")]
         content: Vec<u8>,
     },
 }
