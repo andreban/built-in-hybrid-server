@@ -6,7 +6,7 @@ use axum::{
     extract::State,
     http::header,
     response::{AppendHeaders, IntoResponse, Result},
-    routing::{get, post},
+    routing::post,
 };
 
 use serde::Deserialize;
@@ -26,8 +26,8 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/prompt", post(prompt))
         .route("/prompt-streaming", post(prompt_streaming))
-        .route("/capabilities", get(capabilities))
         .route("/count-tokens", post(count_tokens))
+        .route("/capabilities", post(capabilities))
 }
 
 #[derive(Debug, Deserialize)]
