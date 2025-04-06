@@ -1,23 +1,7 @@
-use std::fmt::Display;
+use super::AILanguageModelError;
 
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-
-#[derive(Debug)]
-pub enum AILanguageModelError {
-    SystemPromptError(&'static str),
-    PromptInputError(&'static str),
-}
-
-impl std::error::Error for AILanguageModelError {}
-impl Display for AILanguageModelError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AILanguageModelError::SystemPromptError(msg)
-            | AILanguageModelError::PromptInputError(msg) => write!(f, "{}", msg),
-        }
-    }
-}
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -117,6 +101,17 @@ impl AILanguageModelCreateOptions {
 
         Ok(Some(content.clone()))
     }
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AILanguageModelCapabilities {
+    pub max_temperature: f32,
+    pub max_top_k: u32,
+    pub default_temperature: f32,
+    pub default_top_k: u32,
+    pub default_top_p: f32,
+    pub max_tokens: u32,
 }
 
 #[cfg(test)]

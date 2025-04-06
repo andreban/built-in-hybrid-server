@@ -1,18 +1,16 @@
 use gemini_rs::error::Error as GeminiError;
 use std::error::Error;
 use std::fmt::Display;
-use tokenizers::Error as TokenizerError;
 use tracing::error;
 
 use axum::response::IntoResponse;
 
-use crate::ai::language_model::AILanguageModelError;
+use built_in_hybrid_server::ai::language_model::AILanguageModelError;
 
 #[derive(Debug)]
 pub enum ApplicationError {
     LanguageModelError(AILanguageModelError),
     GeminiError(GeminiError),
-    TokenizerError(TokenizerError),
 }
 
 impl Error for ApplicationError {}
@@ -22,7 +20,6 @@ impl Display for ApplicationError {
         match self {
             ApplicationError::LanguageModelError(err) => write!(f, "{}", err),
             ApplicationError::GeminiError(err) => write!(f, "{}", err),
-            ApplicationError::TokenizerError(err) => write!(f, "{}", err),
         }
     }
 }
@@ -50,16 +47,14 @@ impl IntoResponse for ApplicationError {
                     AILanguageModelError::PromptInputError(_) => {
                         axum::http::StatusCode::BAD_REQUEST
                     }
+                    AILanguageModelError::ProviderError(_) => {
+                        axum::http::StatusCode::INTERNAL_SERVER_ERROR
+                    }
                 };
                 (status_code, err.to_string()).into_response()
             }
             ApplicationError::GeminiError(err) => {
                 error!("Gemini error: {}", err);
-                let status_code = axum::http::StatusCode::INTERNAL_SERVER_ERROR;
-                (status_code, "Internal Server Error").into_response()
-            }
-            ApplicationError::TokenizerError(err) => {
-                error!("Tokenizer error: {}", err);
                 let status_code = axum::http::StatusCode::INTERNAL_SERVER_ERROR;
                 (status_code, "Internal Server Error").into_response()
             }

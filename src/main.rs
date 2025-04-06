@@ -1,4 +1,3 @@
-pub mod ai;
 mod routes;
 
 use std::{env, error::Error, sync::Arc};
