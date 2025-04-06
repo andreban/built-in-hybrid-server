@@ -9,6 +9,7 @@ use types::AILanguageModelCapabilities;
 pub use types::AILanguageModelCreateOptions;
 pub use types::AILanguageModelPrompt;
 pub use types::AILanguageModelPromptRole;
+use types::AILanguageModelResponsChunk;
 
 pub trait AILanguageModel {
     fn create_options(&mut self, options: AILanguageModelCreateOptions);
@@ -26,7 +27,11 @@ pub trait PromptTreaming: AILanguageModel {
     fn prompt_streaming(
         &self,
         inputs: &[AILanguageModelPrompt],
-    ) -> impl Future<Output = AILanguageModelResult<impl Stream<Item = AILanguageModelResult<String>>>>;
+    ) -> impl Future<
+        Output = AILanguageModelResult<
+            impl Stream<Item = AILanguageModelResult<AILanguageModelResponsChunk>>,
+        >,
+    >;
 }
 
 pub trait CountTokens: AILanguageModel {

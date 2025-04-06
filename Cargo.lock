@@ -663,7 +663,7 @@ dependencies = [
 [[package]]
 name = "gemini-rs"
 version = "0.1.0"
-source = "git+https://github.com/andreban/gemini-rs/?rev=8ff379d#8ff379d040eb13659ca78e37e698579faef320f9"
+source = "git+https://github.com/andreban/gemini-rs/?rev=d1678bd#d1678bdc37367ea23575eb5cea6865a99edad9dd"
 dependencies = [
  "deadqueue",
  "gcp_auth",

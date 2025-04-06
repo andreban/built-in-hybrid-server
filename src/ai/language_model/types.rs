@@ -114,6 +114,13 @@ pub struct AILanguageModelCapabilities {
     pub max_tokens: u32,
 }
 
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AILanguageModelResponsChunk {
+    pub text: Option<String>,
+    pub finished: bool,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

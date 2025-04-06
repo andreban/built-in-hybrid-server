@@ -8,7 +8,8 @@ use crate::ai::{
     language_model::{
         AILanguageModel, AILanguageModelCreateOptions, AILanguageModelError, AILanguageModelPrompt,
         AILanguageModelPromptRole, CountTokens, Prompt, PromptTreaming,
-        error::AILanguageModelResult, types::AILanguageModelCapabilities,
+        error::AILanguageModelResult,
+        types::{AILanguageModelCapabilities, AILanguageModelResponsChunk},
     },
     tokenizer,
 };
@@ -129,7 +130,8 @@ impl PromptTreaming for GeminiProvider {
     async fn prompt_streaming(
         &self,
         inputs: &[AILanguageModelPrompt],
-    ) -> AILanguageModelResult<impl Stream<Item = AILanguageModelResult<String>>> {
+    ) -> AILanguageModelResult<impl Stream<Item = AILanguageModelResult<AILanguageModelResponsChunk>>>
+    {
         let gemini_request = self.build_gemini_request(inputs)?;
         let stream = self
             .gemini_client
@@ -141,20 +143,29 @@ impl PromptTreaming for GeminiProvider {
         let stream = stream.filter_map(|response| {
             let response = match response {
                 Ok(response) => response,
+
+                // Event source closed error is expected when the stream ends, so instead of
+                // returning an error, we return a finished chunk without data.
+                Err(gemini_rs::error::Error::EventSourceClosedError) => {
+                    return Some(Ok(AILanguageModelResponsChunk {
+                        text: None,
+                        finished: true,
+                    }));
+                }
                 Err(e) => {
                     return Some(Err(AILanguageModelError::ProviderError(e.to_string())));
                 }
             };
 
+            // TODO: A chunk without candidates is weird, maybe return an error here.
             let Some(candidate) = response.candidates.first() else {
                 return None;
             };
 
-            let Some(text) = candidate.get_text() else {
-                return None;
-            };
+            let finished = candidate.finish_reason.is_some();
+            let text = candidate.get_text();
 
-            Some(Ok(text))
+            Some(Ok(AILanguageModelResponsChunk { text, finished }))
         });
         Ok(stream)
     }
