@@ -16,8 +16,8 @@ use tracing::{error, info};
 
 use crate::AppState;
 use built_in_hybrid_server::ai::language_model::{
-    AILanguageModel, AILanguageModelCreateOptions, AILanguageModelPrompt, CountTokens, Prompt,
-    PromptTreaming, providers::GeminiProvider,
+    AILanguageModel, AILanguageModelCreateOptions, AILanguageModelError, AILanguageModelPrompt,
+    CountTokens, Prompt, PromptTreaming, providers::GeminiProvider,
 };
 
 use super::error::ApplicationError;
@@ -88,6 +88,12 @@ pub async fn stream_response(
     while let Some(response) = stream.next().await {
         let response = match response {
             Ok(response) => response,
+            Err(AILanguageModelError::ProviderError(e)) => {
+                if !e.contains("Stream ended") {
+                    error!("Gemini streaming response error: {}", e);
+                }
+                break;
+            }
             Err(e) => {
                 error!("Gemini streaming response error: {}", e);
                 break;
